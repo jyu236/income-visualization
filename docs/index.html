@@ -1,11 +1,1189 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Income by Field of Study</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js Bar Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .bar {
+            transition: fill 0.3s;
+        }
+
+        .axis--x path,
+        .axis--x line,
+        .axis--y path,
+        .axis--y line {
+            fill: none;
+            shape-rendering: crispEdges;
+        }
+
+        .axis--x text,
+        .axis--y text {
+            font: 10px sans-serif;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ddd;
+            padding: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .label {
+            font: 12px sans-serif;
+            text-anchor: middle;
+        }
+    </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
+
 <body>
-    <div id="chart"></div>
-    <script src="js/bundle.js"></script>
+
+    <!-- <button onclick="updateData()">Update Data</button> -->
+    <div style="float: right;width: 400px;height: 25px;background-color: #ffffff;border-radius: 5px;display: flex;">
+        <div class="container">
+            <select name="" id="cusSelectbox" onchange="switchStatistics()">
+                <option value="Sum">Sum</option>
+                <option value="Median">Median</option>
+                <option value="Average">Average</option>
+            </select>
+        </div>
+        <div class="checkbox-item" style="margin-top: 2px;">
+            <input type="checkbox" id="option1" value="Option 1">
+            <label class="checkbox-label" for="option1">Sort</label>
+        </div>
+
+        <button onclick="InitData()" style="margin-left: 20px;">Init Data</button>
+        <br>
+        <a href="./index2.html" style="margin-left: 20px;"> > to pie</a>
+    </div>
+
+
+    <svg style="position: absolute;top:50%;left: 50%;transform: translate(-40%,-40%);" width="2000" height="800"></svg>
+    <div class="tooltip"></div>
+
+    <script src="./data.js"></script>
+    <script>
+        const svg = d3.select("svg");
+        const margin = { top: 100, right: 200, bottom: 100, left: 200 };
+        const width = +svg.attr("width") - margin.left - margin.right;
+        const height = +svg.attr("height") - margin.top - margin.bottom;
+        const tooltip = d3.select(".tooltip");
+
+        let data = [
+            {
+                "name": "Education",
+                "value": 1113015,
+                "key": 1
+            },
+            {
+                "name": "Visual and performing arts, and communications technologies",
+                "value": 631255,
+                "key": 2
+            },
+            {
+                "name": "Humanities",
+                "value": 926555,
+                "key": 3
+            },
+            {
+                "name": "Social and behavioural sciences and law",
+                "value": 2016120,
+                "key": 4
+            },
+            {
+                "name": "Business, management and public administration",
+                "value": 3758250,
+                "key": 5
+            },
+            {
+                "name": "Physical and life sciences and technologies",
+                "value": 719720,
+                "key": 6
+            },
+            {
+                "name": "Mathematics, computer and information sciences",
+                "value": 804230,
+                "key": 7
+            },
+            {
+                "name": "Architecture, engineering, and related trades",
+                "value": 3506120,
+                "key": 8
+            },
+            {
+                "name": "Agriculture, natural resources and conservation",
+                "value": 407545,
+                "key": 9
+            },
+            {
+                "name": "Health and related fields",
+                "value": 2444500,
+                "key": 10
+            },
+            {
+                "name": "Personal, protective and transportation services",
+                "value": 1006425,
+                "key": 11
+            }
+        ]
+
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.name))
+            .range([0, width])
+            .padding(0.1);
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.value)])
+            .nice()
+            .range([height, 0]);
+
+
+        g.append("g")
+            .attr("class", "axis axis--x")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x))
+            .selectAll('text')
+            .attr('transform', 'rotate(-45)')
+            .style('text-anchor', 'end')
+            .attr('dx', '-.8em')
+            .attr('dy', '.15em');
+
+        g.append("g")
+            .attr("class", "axis axis--y")
+            .call(d3.axisLeft(y));
+
+        let model = 'father';
+
+        // data = key_3_sum
+        let switchModel = 'Sum'
+        let now_key = 1
+
+        const xAxisLabel = svg.append("text")
+            .attr("transform", `translate(900,750)`)
+            .attr("text-anchor", "middle")
+            .text("Subject Name");
+
+        const yAxisLabel = svg.append("text")
+            .attr("transform", "rotate(0)")
+            .attr("y", -100)
+            .attr("x", 170)
+            .attr("dy", "10em")
+            .style("text-anchor", "middle")
+            .style("opacity", 1)
+            .text("INCOME");
+
+
+        function InitData() {
+            model = 'father'
+            updateData([])
+            let newData = [
+                {
+                    "name": "Education",
+                    "value": 1113015,
+                    "key": 1
+                },
+                {
+                    "name": "Visual and performing arts, and communications technologies",
+                    "value": 631255,
+                    "key": 2
+                },
+                {
+                    "name": "Humanities",
+                    "value": 926555,
+                    "key": 3
+                },
+                {
+                    "name": "Social and behavioural sciences and law",
+                    "value": 2016120,
+                    "key": 4
+                },
+                {
+                    "name": "Business, management and public administration",
+                    "value": 3758250,
+                    "key": 5
+                },
+                {
+                    "name": "Physical and life sciences and technologies",
+                    "value": 719720,
+                    "key": 6
+                },
+                {
+                    "name": "Mathematics, computer and information sciences",
+                    "value": 804230,
+                    "key": 7
+                },
+                {
+                    "name": "Architecture, engineering, and related trades",
+                    "value": 3506120,
+                    "key": 8
+                },
+                {
+                    "name": "Agriculture, natural resources and conservation",
+                    "value": 407545,
+                    "key": 9
+                },
+                {
+                    "name": "Health and related fields",
+                    "value": 2444500,
+                    "key": 10
+                },
+                {
+                    "name": "Personal, protective and transportation services",
+                    "value": 1006425,
+                    "key": 11
+                }
+            ]
+            updateData(newData)
+        }
+        function render(data) {
+            model = 'father'
+            // g.select(".axis--x").remove(); // 移除旧的 x 轴
+            // g.select(".axis--y").remove();
+            y.domain([0, d3.max(data, d => d.value)]).nice();
+            g.select(".axis--y")
+                .transition()
+                .duration(750)
+                .call(d3.axisLeft(y));
+
+            x.domain(data.map(d => d.name));
+
+            const bars = g.selectAll(".bar")
+                .data(data, d => d.name);
+            const colorScale = d3.scaleOrdinal()
+                .domain(data.map(d => d.name)) // Ensure this matches the names in your dataset
+                .range(d3.schemeCategory10);
+
+            const categoryColors = {
+                "Education": "#FF5733",
+                "Visual and performing arts, and communications technologies": "#33FF57",
+                "Humanities": "#3357FF",
+                "Social and behavioural sciences and law": "#FF33A5",
+                "Business, management and public administration": "#FFC300",
+                "Physical and life sciences and technologies": "#8C33FF",
+                "Mathematics, computer and information sciences": "#33FFF5",
+                "Architecture, engineering, and related trades": "#FF8C33",
+                "Agriculture, natural resources and conservation": "#57FF33",
+                "Health and related fields": "#33A5FF",
+                "Personal, protective and transportation services": "#98df8a"
+            };
+
+// Define a utility to generate similar colors
+function generateColor(baseColor, variation = 0.4) {
+    const [r, g, b] = baseColor.match(/\w\w/g).map((hex) => parseInt(hex, 16));
+    const vary = (channel) =>
+        Math.min(255, Math.max(0, channel + Math.floor((Math.random() - 0.5) * 255 * variation)));
+
+    const newColor = `#${vary(r).toString(16).padStart(2, "0")}${vary(g)
+        .toString(16)
+        .padStart(2, "0")}${vary(b).toString(16).padStart(2, "0")}`;
+
+    return newColor;
+}
+
+// Define top-level field colors
+const topLevelColors = {
+    key_1: "#FF5733", // Example color for key_1
+    key_2: "#33FF57", // Example color for key_2
+    key_3: "#3357FF", // Example color for key_3
+    key_4: "#FF33A5", // Example color for key_4
+    key_5: "#FFC300", // Example color for key_5
+    key_6: "#8C33FF", // Example color for key_6
+    key_7: "#33FFF5", // Example color for key_7
+    key_8: "#FF8C33", // Example color for key_8
+    key_9: "#57FF33", // Example color for key_9
+    key_10: "#33A5FF", // Example color for key_10
+};
+
+// Define subfields for each key
+// Define subfields for each key
+const subfields = {
+    key_1: [
+        "Bilingual, multilingual and multicultural education",
+        "Curriculum and instruction",
+        "Educational administration and supervision",
+        "Educational/instructional media design",
+        "Educational assessment, evaluation and research",
+        "International and comparative education",
+        "Social and philosophical foundations of education",
+        "Special education and teaching",
+        "Student counselling and personnel services",
+        "Teacher education and professional development, specific levels and methods",
+        "Teacher education and professional development, specific subject areas",
+        "Teaching English or French as a second or foreign language",
+        "Teaching assistants/aides",
+        "Education, other"
+    ],
+    key_2: [
+        "Communications technologies/technicians and support services", 
+        "Communications technology/technician", 
+        "Audiovisual communications technologies/technicians", 
+        "Graphic communications", 
+        "Communications technologies/technicians and support services, other", 
+        "Visual and performing arts", 
+        "Visual, digital and performing arts, general", 
+        "Crafts/craft design, folk art and artisanry", 
+        "Dance", 
+        "Design and applied arts", 
+        "Drama/theatre arts and stagecraft", 
+        "Film/video and photographic arts", 
+        "Fine arts and art studies", 
+        "Music", 
+        "Arts, entertainment, and media management", 
+        "Community/environmental/socially-engaged art", 
+        "Visual and performing arts, other"
+    ],
+    key_3: [
+        "Indigenous and foreign languages, literatures, and linguistics",
+        "Linguistic, comparative and related language studies and services",
+        "African languages, literatures and linguistics",
+        "East Asian languages, literatures and linguistics",
+        "Slavic, Baltic and Albanian languages, literatures and linguistics",
+        "Germanic languages, literatures and linguistics",
+        "Modern Greek language and literature",
+        "South Asian languages, literatures and linguistics",
+        "Iranian languages, literatures and linguistics",
+        "Romance languages, literatures and linguistics",
+        "Indigenous languages, literatures, and linguistics of the Americas",
+        "Middle/Near Eastern and Semitic languages, literatures and linguistics",
+        "Classics and classical languages, literatures and linguistics",
+        "Southeast Asian and Australasian/Pacific languages, literatures and linguistics",
+        "Turkic, Uralic-Altaic, Caucasian and Central Asian languages, literatures and linguistics",
+        "Sign language",
+        "Second language learning",
+        "Indigenous and foreign languages, literatures and linguistics, other",
+        "English language and literature/letters",
+        "English language and literature, general",
+        "English rhetoric and composition/writing studies",
+        "English literature",
+        "English language and literature/letters, other",
+        "Liberal arts and sciences, general studies and humanities 2",
+        "A Interdisciplinary humanities",
+        "Medieval and renaissance studies",
+        "Classical and ancient studies",
+        "Maritime studies",
+        "History and language/literature",
+        "Linguistics and anthropology",
+        "Integrated philosophy, politics, and economics",
+        "Digital humanities and textual studies",
+        "Thanatology",
+        "Philosophy and religious studies",
+        "Philosophy and religious studies, general",
+        "Philosophy, logic and ethics",
+        "Religion/religious studies",
+        "Philosophy and religious studies, other",
+        "Theology and religious vocations",
+        "Bible/Biblical studies",
+        "Missions/missionary studies and missiology",
+        "Religious education",
+        "Religious music and worship",
+        "Theological and ministerial studies",
+        "Pastoral counselling and specialized ministries",
+        "Religious institution administration and law",
+        "Theology and religious vocations, other",
+        "History 2",
+        "French language and literature/lettersCAN",
+        "French language and literature, generalCAN",
+        "French rhetoric and composition/writing studiesCAN",
+        "French literatureCAN",
+        "French language and literature/letters, otherCAN"  
+    ],
+    key_4: [
+        "Area studies", 
+        "Ethnic, cultural minority, gender, and group studies", 
+        "Communication, journalism and related programs", 
+        "Communication and media studies", 
+        "Journalism", 
+        "Radio, television and digital communication", 
+        "Public relations, advertising and applied communication", 
+        "Publishing", 
+        "Communication, journalism and related programs, other", 
+        "Family and consumer sciences/human sciences", 
+        "Family and consumer sciences/human sciences, general", 
+        "Family and consumer sciences/human sciences business services", 
+        "Family and consumer economics and related services", 
+        "Foods, nutrition and related services", 
+        "Housing and human environments", 
+        "Human development, family studies and related services", 
+        "Apparel and textiles", 
+        "Work and family studies", 
+        "Family and consumer sciences/human sciences, other", 
+        "Legal professions and studies", 
+        "Non-professional legal studies", 
+        "Law (LLB, JD, BCL)", 
+        "Legal research and advanced professional studies (post-LLB/JD)", 
+        "Legal support services", 
+        "Legal professions and studies, other", 
+        "B Interdisciplinary social and behavioural sciences", 
+        "Peace studies and conflict resolution", 
+        "Gerontology", 
+        "Museology/museum studies", 
+        "Science, technology and society", 
+        "Behavioural sciences", 
+        "International/globalization studies", 
+        "Intercultural/multicultural and diversity studies", 
+        "Cognitive science", 
+        "Cultural studies/critical theory and analysis", 
+        "Dispute resolution", 
+        "Human computer interaction", 
+        "Sustainability studies", 
+        "Cultural studies and comparative literature", 
+        "Economics and foreign language/literature", 
+        "Geography and environmental studies", 
+        "History and political science", 
+        "Psychology", 
+        "Psychology, general", 
+        "Research and experimental psychology", 
+        "Clinical, counselling and applied psychology", 
+        "Psychology, other", 
+        "Social sciences", 
+        "General social sciences", 
+        "Anthropology", 
+        "Archaeology", 
+        "Criminology", 
+        "Demography", 
+        "Economics", 
+        "Geography and cartography", 
+        "International relations and national security studies", 
+        "Political science and government", 
+        "Sociology", 
+    ],
+    key_5: [
+        "Accounting and computer science",
+        "Public administration and social service professions",
+        "Human services, general",
+        "Community organization and advocacy",
+        "Public administration",
+        "Public policy analysis",
+        "Social work",
+        "Public administration and social service professions, other",
+        "Business, management, marketing and related support services",
+        "Business/commerce, general",
+        "Business administration, management and operations",
+        "Accounting and related services",
+        "Business operations support and assistant services",
+        "Business/corporate communications",
+        "Business/managerial economics",
+        "Entrepreneurial and small business operations",
+        "Finance and financial management services",
+        "Hospitality administration/management",
+        "Human resources management and services",
+        "International business/trade/commerce",
+        "Management information systems and services",
+        "Management sciences and quantitative methods",
+        "Marketing",
+        "Real estate",
+        "Taxation",
+        "Insurance",
+        "General sales, merchandising and related marketing operations",
+        "Specialized sales, merchandising and marketing operations",
+        "Construction management",
+        "Telecommunications management",
+        "Business, management, marketing and related support services, other"
+    ],
+    key_6: [
+"Biological and biomedical sciences",
+"Biology, general",
+"Biochemistry/biophysics and molecular biology",
+"Botany/plant biology",
+"Cell/cellular biology and anatomical sciences",
+"Microbiological sciences and immunology",
+"Zoology/animal biology",
+"Genetics",
+"Physiology, pathology and related sciences",
+"Pharmacology and toxicology",
+"Biomathematics, bioinformatics, and computational biology",
+"Biotechnology",
+"Ecology, evolution, systematics and population biology",
+"Molecular medicine",
+"Neurobiology and neurosciences",
+"Biological and physical sciences",
+"C Other interdisciplinary physical and life sciences",
+"Biopsychology",
+"Natural sciences",
+"Nutrition sciences",
+"Human biology",
+"Marine sciences",
+"Climate science",
+"Environmental geosciences",
+"Geobiology",
+"Physical sciences",
+"Physical sciences, general",
+"Astronomy and astrophysics",
+"Atmospheric sciences and meteorology",
+"Chemistry",
+"Geological and Earth sciences/geosciences",
+"Physics",
+"Materials sciences",
+"Physics and astronomy",
+"Physical sciences, other",
+"Science technologies/technicians",
+"Science technologies/technicians, general",
+"Biology and biotechnology technologies/technicians",
+"Nuclear and industrial radiologic technologies/technicians",
+"Physical science technologies/technicians",
+"Science technologies/technicians, other",
+    ],
+    key_7: [
+"Computer and information sciences and support services",
+"Computer and information sciences and support services, general",
+"Computer programming",
+"Data processing and data processing technology/technician",
+"Information science/studies",
+"Computer systems analysis/analyst",
+"Data entry/microcomputer applications",
+"Computer science",
+"Computer software and media applications",
+"Computer systems networking and telecommunications",
+"Computer/information technology administration and management",
+"Computer and information sciences and support services, other",
+"Library science",
+"Library science and administration",
+"Library and archives assisting",
+"Mathematics and statistics",
+"Mathematics",
+"Applied mathematics",
+"Statistics",
+"Applied statistics",
+"Mathematics and statistics, other",
+"D Interdisciplinary mathematics, computer and information sciences",
+"Systems science and theory",
+"Mathematics and computer science",
+"Computational science",
+"Economics and computer science",
+"Linguistics and computer science",
+"Mathematical economics",
+"Data science",
+"Data analytics",
+
+    ],
+    key_8: [
+"Architecture and related services",
+"Architecture",
+"City/urban, community and regional planning",
+"Environmental design/architecture",
+"Interior architecture",
+"Landscape architecture (BS, BSc, BSLA, BLA, MSLA, MLA, PhD)",
+"Architectural history, criticism, and conservation",
+"Architectural sciences and technology",
+"Real estate development",
+"Architecture and related services, other",
+"Engineering",
+"General engineering",
+"Aerospace, aeronautical and astronautical/space engineering",
+"Agricultural engineering",
+"Architectural engineering",
+"Biomedical/medical engineering",
+"Ceramic sciences and engineering",
+"Chemical engineering",
+"Civil engineering",
+"Computer engineering",
+"Electrical, electronics and communications engineering",
+"Engineering mechanics",
+"Engineering physics/applied physics",
+"Engineering science",
+"Environmental/environmental health engineering",
+"Materials engineering",
+"Mechanical engineering",
+"Metallurgical engineering",
+"Mining and mineral engineering",
+"Naval architecture and marine engineering",
+"Nuclear engineering",
+"Ocean engineering",
+"Petroleum engineering",
+"Systems engineering",
+"Textile sciences and engineering",
+"Polymer/plastics engineering",
+"Construction engineering",
+"Forest engineering",
+"Industrial engineering",
+"Manufacturing engineering",
+"Operations research",
+"Surveying engineering",
+"Geological/geophysical engineering",
+"Paper science and engineering",
+"Electromechanical engineering",
+"Mechatronics, robotics, and automation engineering",
+"Biochemical engineering",
+"Engineering chemistry",
+"Biological/biosystems engineering",
+"Electrical and computer engineering",
+"Energy systems engineering",
+"Engineering, other",
+"Engineering/engineering-related technologies/technicians",
+"General engineering technologies/technicians",
+"Architectural engineering technology/technician",
+"Civil engineering technology/technician",
+"Electrical/electronic engineering technologies/technicians",
+"Electromechanical technologies/technicians",
+"Textile sciences and engineering", 
+"Polymer/plastics engineering", 
+"Construction engineering", 
+"Forest engineering", 
+"Industrial engineering", 
+"Manufacturing engineering", 
+"Operations research", 
+"Surveying engineering", 
+"Geological/geophysical engineering", 
+"Paper science and engineering", 
+"Electromechanical engineering", 
+"Mechatronics, robotics, and automation engineering", 
+"Biochemical engineering", 
+"Engineering chemistry", 
+"Biological/biosystems engineering", 
+"Electrical and computer engineering", 
+"Energy systems engineering", 
+"Engineering, other", 
+"Engineering/engineering-related technologies/technicians", 
+"General engineering technologies/technicians", 
+"Architectural engineering technology/technician", 
+"Civil engineering technology/technician", 
+"Electrical/electronic engineering technologies/technicians", 
+"Electromechanical technologies/technicians", 
+"Environmental control technologies/technicians", 
+"Industrial production technologies/technicians", 
+"Quality control and safety technologies/technicians", 
+"Mechanical engineering related technologies/technicians", 
+"Mining and petroleum technologies/technicians", 
+"Construction engineering technology/technician", 
+"Engineering-related technologies/technicians", 
+"Computer engineering technologies/technicians", 
+"Drafting/design engineering technologies/technicians", 
+"Engineering-related fields", 
+"Nanotechnology", 
+"Energy systems technologies/technicians", 
+"Engineering/engineering-related technologies/technicians, other", 
+"Historic preservation and conservation", 
+"Construction trades", 
+"Construction trades, general", 
+"Masonry/mason", 
+"Carpentry/carpenter", 
+"Electrical and power transmission installers", 
+"Building/construction finishing, management and inspection", 
+"Plumbing and related water supply services", 
+"Construction trades, other", 
+"Mechanic and repair technologies/technicians", 
+"Mechanics and repairers, general", 
+"Electrical/electronics maintenance and repair technologies/technicians", 
+"Heating, air conditioning, ventilation and refrigeration maintenance technology/technician", 
+"Heavy/industrial equipment maintenance technologies/technicians", 
+"Precision systems maintenance and repair technologies/technicians", 
+"Vehicle maintenance and repair technologies/technicians", 
+"Energy systems maintenance and repair technologies/technicians", 
+"Mechanic and repair technologies/technicians, other", 
+"Precision production", 
+"Precision production trades, general", 
+"Leatherworking and upholstery", 
+"Precision metal working", 
+"Woodworking", 
+"Boilermaking/boilermaker", 
+"Precision production, other", 
+    ],
+    key_9: [
+"Agricultural and veterinary sciences/services/operations and related fields",
+"Agriculture, general",
+"Agricultural business and management",
+"Agricultural mechanization",
+"Agricultural production operations",
+"Agricultural and food products processing",
+"Agricultural and domestic animal services",
+"Applied horticulture/horticultural business services",
+"International agriculture",
+"Agricultural public services",
+"Animal sciences",
+"Food science and technology",
+"Plant sciences",
+"Soil sciences",
+"Agriculture/veterinary preparatory programs",
+"Veterinary medicine (DVM)",
+"Veterinary biomedical and clinical sciences (Cert., MS, MSc, PhD)",
+"Veterinary administrative services",
+"Veterinary/animal health technologies/technicians",
+"Agricultural and veterinary sciences/services/operations and related fields, other",
+"Natural resources and conservation",
+"Natural resources conservation and research",
+"Environmental/natural resources management and policy",
+"Fishing and fisheries sciences and management",
+"Forestry",
+"Wildlife and wildlands science and management",
+"Natural resources and conservation, other"
+    ],
+    key_10: [
+"Parks, recreation, leisure, fitness, and kinesiology",
+"Parks, recreation, and leisure studies",
+"Parks, recreation, and leisure facilities management",
+"Sports, kinesiology, and physical education/physical fitness",
+"Outdoor education",
+"Parks, recreation, leisure, fitness, and kinesiology, other",
+"Health professions and related programs",
+"General health services/allied health/health sciences",
+"Chiropractic (DC)",
+"Communication disorders sciences and services",
+"Dentistry (DDS, DMD)",
+"Advanced/graduate dentistry and oral sciences (Cert., MS, MSc, PhD)",
+"Dental support services and allied professions",
+"Health and medical administrative services",
+"Allied health and medical assisting services",
+"Allied health diagnostic, intervention and treatment professions",
+"Clinical/medical laboratory science/research and allied professions",
+"Health/medical preparatory programs",
+"Medicine",
+"Medical clinical sciences/graduate medical studies",
+"Mental and social health services and allied professions",
+"Optometry (OD)",
+"Ophthalmic and optometric support services and allied professions",
+"Pharmacy, pharmaceutical sciences and administration",
+"Public health",
+"Rehabilitation and therapeutic professions",
+"Health aides/attendants/orderlies",
+"Medical illustration and informatics",
+"Dietetics and clinical nutrition services",
+"Health professions education, ethics, and humanities",
+"Alternative and complementary medicine and medical systems",
+"Alternative and complementary medical support services",
+"Somatic bodywork and related therapeutic services",
+"Movement and mind-body therapies",
+"Energy-based and biologically-based therapies",
+"Registered nursing, nursing administration, nursing research and clinical nursing",
+"Practical nursing, vocational nursing and nursing assistants",
+"Health professions and related programs, other",
+"Health professions residency/fellowship programs",
+"Dental residency/fellowship programs",
+"Veterinary residency/fellowship programs",
+"Nurse practitioner residency/fellowship programs",
+"Pharmacy residency/fellowship programs",
+"Medical residency/fellowship programs",
+"Combined medical residency/fellowship programs",
+"Multiple-pathway medical fellowship programs",
+"Allergy and immunology residency/fellowship programs",
+"Anesthesiology residency/fellowship programs",
+"Dermatology residency/fellowship programs",
+"Emergency medicine residency/fellowship programs",
+"Family medicine residency/fellowship programs",
+"Internal medicine residency/fellowship programs",
+"Medical genetics and genomics residency/fellowship programs",
+"Neurological surgery residency/fellowship programs",
+"Neurology residency/fellowship programs",
+"Nuclear medicine residency/fellowship programs",
+"Obstetrics and gynecology residency/fellowship programs",
+"Ophthalmology residency/fellowship programs",
+"Orthopedic surgery residency/fellowship programs",
+"Otolaryngology residency/fellowship programs",
+"Pathology residency/fellowship programs",
+"Pediatrics residency/fellowship programs",
+"Physical medicine and rehabilitation residency/fellowship programs",
+"Plastic surgery residency/fellowship programs",
+"Preventive medicine residency/fellowship programs",
+"Psychiatry residency/fellowship programs",
+"Radiation oncology residency/fellowship programs",
+"Radiology residency/fellowship programs",
+"Surgery residency/fellowship programs",
+"Urology residency/fellowship programs",
+"Medical residency/fellowship programs, other",
+    ]
+};
+
+
+
+// Generate the color scale for subfields
+const subColorScale = {};
+
+Object.entries(subfields).forEach(([key, fields]) => {
+    const baseColor = topLevelColors[key];
+    fields.forEach((field) => {
+        subColorScale[field] = generateColor(baseColor);
+    });
+});
+
+            const baseColor = d3.color("#1f77b4");
+
+            bars.enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", d => x(d.name))
+                .attr("y", d => y(d.value))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.value))
+                .attr("fill", d => {
+                    if (Object.keys(categoryColors).includes(d.name)) {
+                            // Use top-level color
+                            return categoryColors[d.name]; // Top-level colors defined earlier
+                        } else {
+                            // Use subfield color
+                            console.log(d.name);
+                            if(Object.keys(subColorScale).includes(d.name)){
+                                return subColorScale[d.name];
+                            } else {
+                                return "#ccc";
+                            }
+                        }
+                    })
+                .on("mouseover", function (event, d) {
+                    tooltip.style("opacity", 1)
+                        .html(`Subject: ${d.name}<br>Income: $${d.value}`)
+                        .style("left", `${event.pageX + 5}px`)
+                        .style("top", `${event.pageY - 28}px`);
+                })
+                .on("mouseout", function () {
+                    tooltip.style("opacity", 0);
+                })
+                .on("click", function (event, d) {
+                    clickBar(event, d)
+                })
+                .merge(bars)
+                .transition()
+                .duration(750)
+                .attr("x", d => x(d.name))
+                .attr("y", d => y(d.value))
+                .attr("height", d => height - y(d.value));
+            const labels = g.selectAll(".label")
+                .data(data, d => d.name);
+            labels.enter().append("text")
+                .attr("class", "label")
+                .attr("x", d => x(d.name) + x.bandwidth() / 2)
+                .text(function (d) {
+                    return data.length >= 20 ? data.length >= 40 ? '...' : d.value.toString().slice(0, 2) + '...' : d.value
+                })
+                .merge(labels)
+                .transition()
+                .duration(750)
+                .attr("x", d => x(d.name) + x.bandwidth() / 2)
+                .attr("y", d => y(d.value) - 5);
+
+
+
+            g.select(".axis--x")
+                .transition()
+                .duration(750)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .text(function (d) {
+                    return d.length > 10 ? data.length >= 30 ? '...' : d.slice(0, 10) + "..." : d; // 限制为10个字符
+                })
+                .attr('transform', 'rotate(-45)')
+                .style('text-anchor', 'end')
+                .attr('dx', '-.8em')
+                .attr('dy', '.45em');
+
+
+            labels.exit().remove();
+            bars.exit().remove();
+        }
+
+
+        function updateData(new_data) {
+            render(new_data);
+        }
+
+        render(data);
+
+        function clickBar(event, d) {
+            model = 'child'
+            now_key = d.key
+            updateData([])
+            if (d.key === 1) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_1_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_1_median)
+                } else {
+                    data = deepCopyArray(key_1_average)
+                }
+            }
+
+
+            if (d.key === 2) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_2_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_2_median)
+                } else {
+                    data = deepCopyArray(key_2_average)
+                }
+            }
+
+
+            if (d.key === 3) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_3_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_3_median)
+                } else {
+                    data = deepCopyArray(key_3_average)
+                }
+            }
+
+
+            if (d.key === 4) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_4_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_4_median)
+                } else {
+                    data = deepCopyArray(key_4_average)
+                }
+            }
+
+
+            if (d.key === 5) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_5_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_5_median)
+                } else {
+                    data = deepCopyArray(key_5_average)
+                }
+            }
+
+
+            if (d.key === 6) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_6_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_6_median)
+                } else {
+                    data = deepCopyArray(key_6_average)
+                }
+            }
+
+
+            if (d.key === 7) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_7_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_7_median)
+                } else {
+                    data = deepCopyArray(key_7_average)
+                }
+            }
+
+
+            if (d.key === 8) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_8_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_8_median)
+                } else {
+                    data = deepCopyArray(key_8_average)
+                }
+            }
+
+
+            if (d.key === 9) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_9_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_9_median)
+                } else {
+                    data = deepCopyArray(key_9_average)
+                }
+            }
+
+
+            if (d.key === 10) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_10_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_10_median)
+                } else {
+                    data = deepCopyArray(key_10_average)
+                }
+            }
+
+
+            if (d.key === 11) {
+                if (switchModel === 'Sum') {
+                    data = deepCopyArray(key_11_sum)
+                } else if (switchModel === 'Median') {
+                    data = deepCopyArray(key_11_median)
+                } else {
+                    data = deepCopyArray(key_11_average)
+                }
+            }
+
+            updateData(data)
+        }
+
+        function deepCopyArray(arr) {
+            return arr.map(item => Array.isArray(item) ? deepCopyArray(item) : item);
+        }
+
+        const checkbox = document.getElementById('option1')
+        let backUpData = []
+        // 监听是否排序
+        checkbox.addEventListener('change', function () {
+            if (this.checked) {
+                // checkbox 被选中时的操作
+                let sortedData = data.slice().sort((a, b) => b.value - a.value);
+                updateData(sortedData);
+            } else {
+                updateData(data);
+            }
+        });
+        function sortData() {
+            
+            updateData(data);
+        }
+
+        function switchStatistics() {
+            var selectElement = document.getElementById("cusSelectbox");
+            // 获取当前选中的值
+            var selectedValue = selectElement.value;
+
+            // 打印选中的值
+            // console.log(selectedValue);
+            switchModel = selectedValue
+
+            if (model === 'father' && switchModel === 'Sum') {
+                data = [{ "name": "Education", "value": 1113015, "key": 1 }, { "name": "Visual and performing arts, and communications technologies", "value": 631255, "key": 2 }, { "name": "Humanities", "value": 926555, "key": 3 }, { "name": "Social and behavioural sciences and law", "value": 2016120, "key": 4 }, { "name": "Business, management and public administration", "value": 3758250, "key": 5 }, { "name": "Physical and life sciences and technologies", "value": 719720, "key": 6 }, { "name": "Mathematics, computer and information sciences", "value": 804230, "key": 7 }, { "name": "Architecture, engineering, and related trades", "value": 3506120, "key": 8 }, { "name": "Agriculture, natural resources and conservation", "value": 407545, "key": 9 }, { "name": "Health and related fields", "value": 2444500, "key": 10 }, { "name": "Personal, protective and transportation services", "value": 1006425, "key": 11 }, { "name": "Other", "value": 5305, "key": 12 }]
+                updateData([])
+                updateData(data)
+                return
+            }
+
+            if (model === 'father' && switchModel === 'Median') {
+                data = [{ "name": "Education", "value": 53600, "key": 1 }, { "name": "Visual and performing arts, and communications technologies", "value": 30800, "key": 2 }, { "name": "Humanities", "value": 36800, "key": 3 }, { "name": "Social and behavioural sciences and law", "value": 44800, "key": 4 }, { "name": "Business, management and public administration", "value": 48400, "key": 5 }, { "name": "Physical and life sciences and technologies", "value": 46400, "key": 6 }, { "name": "Mathematics, computer and information sciences", "value": 59200, "key": 7 }, { "name": "Architecture, engineering, and related trades", "value": 56400, "key": 8 }, { "name": "Agriculture, natural resources and conservation", "value": 42400, "key": 9 }, { "name": "Health and related fields", "value": 46000, "key": 10 }, { "name": "Personal, protective and transportation services", "value": 34400, "key": 11 }, { "name": "Other", "value": 42400, "key": 12 }]
+                updateData([])
+                updateData(data)
+                console.log(2);
+                return
+            }
+
+            if (model === 'father' && switchModel === 'Average') {
+                data = [{ "name": "Education", "value": 55650, "key": 1 }, { "name": "Visual and performing arts, and communications technologies", "value": 40480, "key": 2 }, { "name": "Humanities", "value": 48640, "key": 3 }, { "name": "Social and behavioural sciences and law", "value": 60600, "key": 4 }, { "name": "Business, management and public administration", "value": 66400, "key": 5 }, { "name": "Physical and life sciences and technologies", "value": 60950, "key": 6 }, { "name": "Mathematics, computer and information sciences", "value": 70300, "key": 7 }, { "name": "Architecture, engineering, and related trades", "value": 65800, "key": 8 }, { "name": "Agriculture, natural resources and conservation", "value": 51600, "key": 9 }, { "name": "Health and related fields", "value": 56000, "key": 10 }, { "name": "Personal, protective and transportation services", "value": 44360, "key": 11 }, { "name": "Other", "value": 50080, "key": 12 }]
+                console.log(3);
+                updateData([])
+                updateData(data)
+                return
+            }
+
+
+
+            if (now_key === 1) {
+                if (switchModel === 'Sum') {
+                    updateData(key_1_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_1_median)
+                } else {
+                    updateData(key_1_average)
+                }
+            }
+            if (now_key === 2) {
+                if (switchModel === 'Sum') {
+                    updateData(key_2_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_2_median)
+                } else {
+                    updateData(key_2_average)
+                }
+            }
+            if (now_key === 3) {
+                if (switchModel === 'Sum') {
+                    updateData(key_3_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_3_median)
+                } else {
+                    updateData(key_3_average)
+                }
+            }
+
+
+            if (now_key === 4) {
+                if (switchModel === 'Sum') {
+                    updateData(key_4_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_4_median)
+                } else {
+                    updateData(key_4_average)
+                }
+            }
+
+
+            if (now_key === 5) {
+                if (switchModel === 'Sum') {
+                    updateData(key_5_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_5_median)
+                } else {
+                    updateData(key_5_average)
+                }
+            }
+
+
+            if (now_key === 6) {
+                if (switchModel === 'Sum') {
+                    updateData(key_6_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_6_median)
+                } else {
+                    updateData(key_6_average)
+                }
+            }
+
+
+            if (now_key === 7) {
+                if (switchModel === 'Sum') {
+                    updateData(key_7_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_7_median)
+                } else {
+                    updateData(key_7_average)
+                }
+            }
+
+
+            if (now_key === 8) {
+                if (switchModel === 'Sum') {
+                    updateData(key_8_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_8_median)
+                } else {
+                    updateData(key_8_average)
+                }
+            }
+
+
+            if (now_key === 9) {
+                if (switchModel === 'Sum') {
+                    updateData(key_9_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_9_median)
+                } else {
+                    updateData(key_9_average)
+                }
+            }
+
+
+            if (now_key === 10) {
+                if (switchModel === 'Sum') {
+                    updateData(key_10_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_10_median)
+                } else {
+                    updateData(key_10_average)
+                }
+            }
+
+
+            if (now_key === 11) {
+                if (switchModel === 'Sum') {
+                    updateData(key_11_sum)
+                } else if (switchModel === 'Median') {
+                    updateData(key_11_median)
+                } else {
+                    updateData(key_11_average)
+                }
+            }
+        }
+    </script>
 </body>
+
 </html>
