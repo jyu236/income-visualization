@@ -1,0 +1,327 @@
+'use client';
+
+import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
+import { MajorCategory, RawData, simplifyMajorCategory, SubSubCategory } from "../data";
+import { useState, useMemo } from "react";
+import { defaultStyles, useTooltip, useTooltipInPortal } from "@visx/tooltip";
+import { Grid } from "@visx/grid";
+import { Group } from "@visx/group";
+import { Color, PrimaryColor } from "../color";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { Bar, BarStack } from "@visx/shape";
+import { localPoint } from "@visx/event";
+
+let tooltipTimeout: number;
+
+const getMajorCategory = <T extends {name: string}, K extends T['name']>(data: T): K => data.name as K;
+
+const defaultMargin = { top: 20, right: 0, bottom: 30, left: 95 };
+
+export default function StackBarChart({
+    data,
+    width,
+    height,
+    margin = defaultMargin,
+}: {
+    data: RawData[]
+    width: number
+    height: number
+    events?: boolean
+    margin?: {
+        top: number
+        right: number
+        bottom: number
+        left: number
+    }
+}) {
+    const [incomeType, setIncomeType] = useState<'median' | 'average'>('median');
+    const [isSort, setIsSort] = useState(false);
+    const [showSubCategoryMap, setShowSubCategoryMap] = useState<Record<MajorCategory, boolean>>({
+        [MajorCategory.EDUCATION]: false,
+        [MajorCategory.ARTS_AND_COMMUNICATIONS]: false,
+        [MajorCategory.HUMANITIES]: false,
+        [MajorCategory.SOCIAL_SCIENCES_AND_LAW]: false,
+        [MajorCategory.BUSINESS_AND_ADMINISTRATION]: false,
+        [MajorCategory.PHYSICAL_AND_LIFE_SCIENCES]: false,
+        [MajorCategory.MATHEMATICS_AND_COMPUTING]: false,
+        [MajorCategory.ARCHITECTURE_AND_ENGINEERING]: false,
+        [MajorCategory.AGRICULTURE_AND_RESOURCES]: false,
+        [MajorCategory.HEALTH]: false,
+        [MajorCategory.PERSONAL_AND_PROTECTIVE_SERVICES]: false,
+        [MajorCategory.OTHER]: false
+    });
+
+    const medianIncome = data.map(d => d.data.medianIncome);
+    const averageIncome = data.map(d => d.data.averageIncome);
+    const medianIncomeScale = scaleLinear<number>({
+        domain: [0, Math.max(
+            ...medianIncome,
+            ...data.flatMap(d => 
+                showSubCategoryMap[getMajorCategory(d)] 
+                    ? [d.subSubCategories.reduce((acc, s) => acc + s.data.medianIncome, 0)]
+                    : [d.data.medianIncome]
+            )
+        )],
+        nice: true,
+    });
+    const averageIncomeScale = scaleLinear<number>({
+        domain: [0, Math.max(
+            ...averageIncome,
+            ...data.flatMap(d => 
+                showSubCategoryMap[getMajorCategory(d)]
+                    ? [d.subSubCategories.reduce((acc, s) => acc + s.data.averageIncome, 0)]
+                    : [d.data.averageIncome]
+            )
+        )],
+        nice: true,
+    });
+
+    const sortedData = useMemo(() => 
+        [...data].sort((a, b) => {
+            if (!isSort) return 0;
+            
+            const getTotal = (d: RawData) => {
+                if (!showSubCategoryMap[getMajorCategory(d)]) {
+                    return incomeType === 'median' 
+                        ? d.data.medianIncome 
+                        : d.data.averageIncome;
+                }
+                return d.subSubCategories.reduce((acc, s) => 
+                    acc + (incomeType === 'median' 
+                        ? s.data.medianIncome 
+                        : s.data.averageIncome), 
+                    0
+                );
+            };
+
+            return getTotal(b) - getTotal(a);
+        }),
+        [data, isSort, incomeType, showSubCategoryMap]
+    );
+
+    const majorCategoryScale = scaleBand<string>({
+        domain: sortedData.map(getMajorCategory<RawData, MajorCategory>).map(simplifyMajorCategory),
+        padding: 0.1,
+    });
+
+    const colorScale = scaleOrdinal<MajorCategory, string>({
+        domain: sortedData.map(getMajorCategory<RawData, MajorCategory>),
+        range: sortedData.map(getMajorCategory<RawData, MajorCategory>).map(c => Color[c]),
+    });
+
+    const xMax = width - margin.left - margin.right;
+    const yMax = height - margin.top - margin.bottom;
+
+    majorCategoryScale.rangeRound([0, xMax]);
+    medianIncomeScale.range([yMax, 0]);
+    averageIncomeScale.range([yMax, 0]);
+
+    const { tooltipOpen, tooltipLeft, tooltipTop, tooltipData, hideTooltip, showTooltip } =
+        useTooltip<{
+            bar: SubSubCategory;
+            key: string;
+            index: number;
+        }>();
+    const { containerRef, TooltipInPortal } = useTooltipInPortal({
+        // TooltipInPortal is rendered in a separate child of <body /> and positioned
+        // with page coordinates which should be updated on scroll. consider using
+        // Tooltip or TooltipWithBounds if you don't need to render inside a Portal
+        scroll: true,
+    });
+    const tooltipStyles = {
+        ...defaultStyles,
+        minWidth: 60,
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        color: 'white',
+    };
+
+    return <div className="flex flex-col p-2 gap-2">
+        <div className="w-full flex flex-row gap-2 items-center justify-end">
+            <select 
+                className="select select-primary select-xs max-w-xs"
+                value={incomeType}
+                onChange={(e) => setIncomeType(e.target.value as 'median' | 'average')}
+            >
+                <option value="median">Median Income</option>
+                <option value="average">Average Income</option>
+            </select>
+            <label className="label cursor-pointer flex flex-row items-center gap-2">
+                <input 
+                    type="checkbox" 
+                    checked={isSort}
+                    onChange={(e) => setIsSort(e.target.checked)}
+                    className="checkbox checkbox-primary checkbox-xs" 
+                />
+                <span className="label-text font-bold">Sort</span>
+            </label>
+        </div>
+        <div className="relative flex flex-col items-center justify-center gap-3">
+            <svg ref={containerRef} width={width} height={height}>
+                <Grid
+                    top={margin.top}
+                    left={margin.left}
+                    xScale={majorCategoryScale}
+                    yScale={incomeType === 'median' ? medianIncomeScale : averageIncomeScale}
+                    width={width}
+                    height={height}
+                    stroke={PrimaryColor}
+                    strokeOpacity={0.1}
+                    xOffset={majorCategoryScale.bandwidth() / 2}
+                />
+                <AxisLeft
+                    left={margin.left}
+                    top={margin.top}
+                    scale={incomeType === 'median' ? medianIncomeScale : averageIncomeScale}
+                    stroke={PrimaryColor}
+                    tickStroke={PrimaryColor}
+                    tickLabelProps={{
+                        fill: PrimaryColor,
+                        fontSize: 14,
+                        textAnchor: 'end',
+                        dx: -4
+                    }}
+                    label={incomeType === 'median' ? 'Median Income ($)' : 'Average Income ($)'}
+                    labelProps={{
+                        fill: PrimaryColor,
+                        fontSize: 14,
+                        textAnchor: 'middle',
+                        dy: -40,
+                        dx: -35
+                    }}
+                />
+                <Group top={margin.top} left={margin.left}>
+                    {sortedData.map((d, index) => {
+                        const baseColor = colorScale(getMajorCategory(d));
+                        if (!showSubCategoryMap[getMajorCategory(d)]){
+                            const barWidth = majorCategoryScale.bandwidth();
+                            const barHeight = yMax - (incomeType === 'median' ? medianIncomeScale(d.data.medianIncome) : averageIncomeScale(d.data.averageIncome));
+                            const barX = majorCategoryScale(simplifyMajorCategory(getMajorCategory(d)));
+                            const barY = yMax - barHeight;
+                            return (
+                                <Bar
+                                    key={`bar-${getMajorCategory(d)}`}
+                                    x={barX}
+                                    y={barY}
+                                    width={barWidth}
+                                    height={barHeight}
+                                    fill={baseColor}
+                                    onClick={() => {
+                                        const category = getMajorCategory(d);
+                                        setShowSubCategoryMap(prev => ({
+                                            ...prev,
+                                            [category]: true
+                                        }));
+                                    }}
+                                    onMouseLeave={() => {
+                                        tooltipTimeout = window.setTimeout(() => {
+                                          hideTooltip();
+                                        }, 300);
+                                    }}
+                                    onMouseMove={(event) => {
+                                        if (tooltipTimeout) clearTimeout(tooltipTimeout);
+                                        const eventSvgCoords = localPoint(event);
+                                        showTooltip({
+                                            tooltipData: {
+                                                bar: d,
+                                                key: getMajorCategory(d),
+                                                index: sortedData.indexOf(d),
+                                            },
+                                            tooltipTop: eventSvgCoords?.y,
+                                            tooltipLeft: eventSvgCoords?.x,
+                                        });
+                                    }}
+                                />
+                            );
+                        } else {
+                            const totalSubCategories = d.subSubCategories.length;
+                            const shownData = [{
+                                name: getMajorCategory(d),
+                                ...d.subSubCategories.reduce((acc, s) => ({
+                                    ...acc,
+                                    [s.name]: s.data[incomeType === 'median' ? 'medianIncome' : 'averageIncome']
+                                }), {})
+                            }]
+                            return (<BarStack<typeof shownData[0], string>
+                                key={`bars-${getMajorCategory(d)}`}
+                                data={shownData}
+                                keys={d.subSubCategories.map(s => s.name)}
+                                x={() => simplifyMajorCategory(getMajorCategory(d))}
+                                xScale={majorCategoryScale}
+                                yScale={incomeType === 'median' ? medianIncomeScale : averageIncomeScale}
+                                color={() => baseColor}
+                            >
+                                {(barStacks) =>
+                                    barStacks.map((barStack) =>
+                                        barStack.bars.map((bar) => (
+                                        <rect
+                                            key={`bars-stack-${index}-${barStack.index}`}
+                                            x={bar.x}
+                                            y={bar.y}
+                                            height={bar.height}
+                                            width={bar.width}
+                                            fill={`${baseColor}${Math.round((1 - (barStack.index / (totalSubCategories + 1))) * 255).toString(16).padStart(2, '0')}`}
+                                            onClick={() => {
+                                                const category = getMajorCategory(d);
+                                                setShowSubCategoryMap(prev => ({
+                                                    ...prev,
+                                                    [category]: false
+                                                }));
+                                            }}
+                                            onMouseLeave={() => {
+                                                tooltipTimeout = window.setTimeout(() => {
+                                                    hideTooltip();
+                                                }, 300);
+                                            }}
+                                            onMouseMove={(event) => {
+                                                if (tooltipTimeout) clearTimeout(tooltipTimeout);
+                                                const eventSvgCoords = localPoint(event);
+                                                const left = bar.x + bar.width / 2;
+                                                showTooltip({
+                                                    tooltipData: {
+                                                        bar: d.subSubCategories[barStack.index],
+                                                        key: getMajorCategory(d),
+                                                        index: sortedData.indexOf(d),
+                                                    },
+                                                    tooltipTop: eventSvgCoords?.y,
+                                                    tooltipLeft: left,
+                                                });
+                                            }}
+                                        />
+                                        )),
+                                    )
+                                }
+                            </BarStack>)
+                        }
+                    })}
+                </Group>
+                <AxisBottom
+                    top={yMax + margin.top}
+                    left={margin.left}
+                    scale={majorCategoryScale}
+                    tickFormat={(d) => simplifyMajorCategory(d as MajorCategory)}
+                    stroke={PrimaryColor}
+                    tickStroke={PrimaryColor}
+                    tickLabelProps={{
+                        fill: PrimaryColor,
+                        fontSize: 14,
+                        textAnchor: 'middle',
+                    }}
+                />
+            </svg>
+            {tooltipOpen && tooltipData && (
+                <TooltipInPortal
+                    top={tooltipTop}
+                    left={tooltipLeft}
+                    style={tooltipStyles}
+                >
+                    <div>
+                        <strong>{getMajorCategory(tooltipData.bar)}</strong>
+                    </div>
+                    <div>
+                        $ {incomeType === 'median' ? tooltipData.bar.data.medianIncome : tooltipData.bar.data.averageIncome}
+                    </div>
+                </TooltipInPortal>
+            )}
+        </div>
+    </div>;
+}
