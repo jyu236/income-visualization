@@ -15,7 +15,31 @@ const getMajorCategory = <T extends {name: string}, K extends T['name']>(data: T
 
 const defaultMargin = { top: 0, right: 0, bottom: 0, left: 0 };
 
-export default function StackBarChart({
+const Legend = ({ 
+    items, 
+    onItemClick 
+}: { 
+    items: { name: string; color: string }[];
+    onItemClick?: (name: string) => void;
+}) => (
+    <div className="flex flex-wrap gap-4 justify-center items-center mt-4 px-4">
+        {items.map((item) => (
+            <div 
+                key={item.name}
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => onItemClick?.(item.name)}
+            >
+                <div 
+                    className="w-4 h-4" 
+                    style={{ backgroundColor: item.color }}
+                />
+                <span className="text-sm">{item.name}</span>
+            </div>
+        ))}
+    </div>
+);
+
+export default function NightingaleRoseChart({
     data,
     width,
     height,
@@ -67,6 +91,35 @@ export default function StackBarChart({
 
         return finalData;
     }, [data, incomeType, isSort, selectedMajor]);
+
+    const legendItems = useMemo(() => {
+        if (selectedMajor === "all") {
+            return data.map(d => ({
+                name: simplifyMajorCategory(getMajorCategory(d)),
+                color: Color[getMajorCategory(d)]
+            }));
+        } else {
+            const baseColor = Color[selectedMajor];
+            const selectedData = data.find(d => d.name === selectedMajor);
+            return selectedData?.subSubCategories.map((subCat, index, array) => ({
+                name: subCat.name,
+                color: `${baseColor}${Math.round((1 - (index / (array.length + 1))) * 255).toString(16).padStart(2, '0')}`
+            })) || [];
+        }
+    }, [data, selectedMajor]);
+
+    const handleLegendClick = (name: string) => {
+        if (selectedMajor === "all") {
+            const category = data.find(d => 
+                simplifyMajorCategory(getMajorCategory(d)) === name
+            );
+            if (category) {
+                setSelectedMajor(getMajorCategory(category));
+            }
+        } else {
+            setSelectedMajor("all");
+        }
+    };
 
     const xMax = width - margin.left - margin.right;
     const yMax = height - margin.top - margin.bottom;
@@ -156,8 +209,16 @@ export default function StackBarChart({
                 />
                 <span className="label-text font-bold">Sort</span>
             </label>
+            {selectedMajor !== "all" && (
+                <button
+                    className="btn btn-primary btn-xs"
+                    onClick={() => setSelectedMajor("all")}
+                >
+                    Back to Categories
+                </button>
+            )}
         </div>
-        <div className="relative flex flex-row items-start justify-center gap-5">
+        <div className="relative flex flex-col items-center justify-center gap-3">
             <svg ref={containerRef} width={width} height={height}>
                 <Group top={yMax / 2 + margin.top} left={xMax / 2 + margin.left}>
                     {sortedData.map((d, index) => {
@@ -216,13 +277,17 @@ export default function StackBarChart({
                         <strong>{getMajorCategory(tooltipData.bar)}</strong>
                     </div>
                     <div>
-                        {tooltipData.bar.employment} employees
+                        {tooltipData.bar.employment.toLocaleString()} employees
                     </div>
                     <div>
-                        {incomeType === 'median' ? 'Median Income' : 'Average Income'}: $ {tooltipData.bar.income}
+                        {incomeType === 'median' ? 'Median Income' : 'Average Income'}: $ {tooltipData.bar.income.toLocaleString()}
                     </div>
                 </TooltipInPortal>
             )}
         </div>
+        <Legend 
+            items={legendItems}
+            onItemClick={handleLegendClick}
+        />
     </div>;
 }
